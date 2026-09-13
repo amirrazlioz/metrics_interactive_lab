@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מעבדת אינטראקטיבית: מדדי ביצוע (Metrics Simulator)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-blue: #38bdf8;
+            --accent-green: #4ade80;
+            --accent-red: #f87171;
+            --accent-purple: #c084fc;
+            --text-light: #f8fafc;
+            --text-dim: #94a3b8;
+            --border-color: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Assistant', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+            max-width: 800px;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            color: var(--accent-blue);
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+
+        header p {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        @media (max-width: 900px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-light);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Interactive Simulation Area */
+        .simulation-canvas {
+            position: relative;
+            width: 100%;
+            height: 320px;
+            background: #090d16;
+            border-radius: 12px;
+            border: 2px dashed var(--border-color);
+            overflow: hidden;
+        }
+
+        .scanner-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(180deg, transparent, var(--accent-blue), transparent);
+            box-shadow: 0 0 15px var(--accent-blue);
+            transition: left 0.1s linear;
+            z-index: 10;
+        }
+
+        .threshold-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background-color: var(--accent-purple);
+            box-shadow: 0 0 10px var(--accent-purple);
+            z-index: 5;
+            cursor: ew-resize;
+        }
+
+        .threshold-label {
+            position: absolute;
+            top: 10px;
+            transform: translateX(50%);
+            background: var(--accent-purple);
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .item {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: translate(-50%, -50%);
+        }
+
+        .item.sick {
+            background-color: #ef4444;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+            border: 2px solid #fca5a5;
+        }
+
+        .item.healthy {
+            background-color: #22c55e;
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+            border: 2px solid #86efac;
+        }
+
+        .item-detected {
+            box-shadow: 0 0 0 4px #fbbf24, 0 0 15px #fbbf24 !important;
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            100% { transform: translate(-50%, -50%) scale(1.25); }
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 15px;
+            border-radius: 12px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.95rem;
+            color: var(--text-dim);
+        }
+
+        .control-group label span {
+            color: var(--accent-blue);
+            font-weight: bold;
+        }
+
+        input[type=range] {
+            width: 100%;
+            accent-color: var(--accent-blue);
+            cursor: pointer;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--accent-blue);
+            color: #0f172a;
+        }
+
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        button.secondary {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-light);
+        }
+
+        button.secondary:hover {
+            background: var(--border-color);
+        }
+
+        /* Confusion Matrix Grid */
+        .matrix-grid {
+            display: grid;
+            grid-template-columns: auto 1fr 1fr;
+            grid-template-rows: auto 1fr 1fr;
+            gap: 8px;
+            text-align: center;
+        }
+
+        .matrix-cell {
+            padding: 12px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .cell-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .cell-val {
+            font-size: 1.6rem;
+            font-weight: 800;
+        }
+
+        .tp { background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.4); color: #4ade80; }
+        .fp { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; }
+        .fn { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; }
+        .tn { background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.4); color: #4ade80; }
+
+        .header-cell {
+            background: transparent;
+            font-weight: bold;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .metric-card {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .metric-name {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            font-weight: 600;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent-blue);
+        }
+
+        .metric-formula {
+            font-size: 0.75rem;
+            color: #64748b;
+            font-family: monospace;
+            direction: ltr;
+        }
+
+        /* Explanations Banner */
+        .info-banner {
+            grid-column: 1 / -1;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            padding: 15px 20px;
+            color: var(--text-light);
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+
+        .info-banner strong {
+            color: var(--accent-blue);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>סימולטור אינטראקטיבי: מדדי ביצוע (Classification Metrics)</h1>
+        <p>הזיזו את רף החלטת המודל (Threshold) או שנו את כמות הנתונים כדי לראות כיצד המדדים משתנים בזמן אמת!</p>
+    </header>
+
+    <div class="main-container">
+
+        <!-- Left Side: Interactive Area -->
+        <div class="panel">
+            <div class="panel-title">
+                <span>1. מרחב הנתונים והסיווג</span>
+                <span style="font-size: 0.9rem; font-weight: normal; color: var(--accent-blue);" id="total-count-badge">0 פריטים</span>
+            </div>
+
+            <div class="simulation-canvas" id="canvas">
+                <!-- Threshold Line -->
+                <div class="threshold-line" id="thresholdLine" style="left: 50%;">
+                    <div class="threshold-label" id="thresholdValue">רף רגישות: 50%</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>
+                        <span>שינוי רף ההחלטה (Decision Threshold):</span>
+                        <span id="sliderVal">50%</span>
+                    </label>
+                    <input type="range" id="thresholdSlider" min="5" max="95" value="50">
+                    <small style="color: #64748b; margin-top: 2px;">ככל שהרף משמאל – המודל מסווג יותר דוגמאות כ-"חיובי" (חולה 🔴).</small>
+                </div>
+
+                <div class="btn-group">
+                    <button onclick="generateData()">ערבב נתונים מחדש 🔄</button>
+                    <button class="secondary" onclick="toggleImbalance()">מצב "מחלה נדירה" ⚠️</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Metrics & Matrix -->
+        <div class="panel">
+            <div class="panel-title">2. מטריצת בלבול (Confusion Matrix)</div>
+
+            <div class="matrix-grid">
+                <!-- Headers -->
+                <div class="header-cell"></div>
+                <div class="header-cell">מודל: חולה (🔴)</div>
+                <div class="header-cell">מודל: בריא (🟢)</div>
+
+                <!-- Row 1: Actually Sick -->
+                <div class="header-cell" style="writing-mode: vertical-rl; transform: rotate(180deg);">אמת: חולה</div>
+                <div class="matrix-cell tp">
+                    <div class="cell-label">TP (זיהוי חולה נכון)</div>
+                    <div class="cell-val" id="val-tp">0</div>
+                </div>
+                <div class="matrix-cell fn">
+                    <div class="cell-label">FN (פספוס חולה)</div>
+                    <div class="cell-val" id="val-fn">0</div>
+                </div>
+
+                <!-- Row 2: Actually Healthy -->
+                <div class="header-cell" style="writing-mode: vertical-rl; transform: rotate(180deg);">אמת: בריא</div>
+                <div class="matrix-cell fp">
+                    <div class="cell-label">FP (אזעקת שווא)</div>
+                    <div class="cell-val" id="val-fp">0</div>
+                </div>
+                <div class="matrix-cell tn">
+                    <div class="cell-label">TN (זיהוי בריא נכון)</div>
+                    <div class="cell-val" id="val-tn">0</div>
+                </div>
+            </div>
+
+            <div class="panel-title" style="margin-top: 10px;">3. מדדי הערכה בזמן אמת</div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-name">Accuracy (דיוק כולל)</div>
+                    <div class="metric-value" id="m-acc">0%</div>
+                    <div class="metric-formula">(TP + TN) / Total</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-name">Precision (דיוק החיזוי)</div>
+                    <div class="metric-value" id="m-prec" style="color: var(--accent-green);">0%</div>
+                    <div class="metric-formula">TP / (TP + FP)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-name">Recall (רגישות / תפיסה)</div>
+                    <div class="metric-value" id="m-rec" style="color: #f59e0b;">0%</div>
+                    <div class="metric-formula">TP / (TP + FN)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-name">F1-Score (איזון)</div>
+                    <div class="metric-value" id="m-f1" style="color: var(--accent-purple);">0.00</div>
+                    <div class="metric-formula">2 · (P · R) / (P + R)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Explanations Banner -->
+        <div class="info-banner">
+            💡 <strong>טיפ פדגוגי לדיון בכיתה:</strong><br>
+            • נסו להזיז את <strong>רף ההחלטה</strong> שמאלה עד הסוף: מה קורה ל-<strong>Recall</strong>? (נגיע ל-100%, לא פספסנו אף חולה!), אך מה המחיר שמשלמים ב-<strong>Precision</strong> (הרבה אזעקות שווא)?<br>
+            • עברו למצב <strong>"מחלה נדירה"</strong>: שימו לב איך ה-<strong>Accuracy</strong> נשאר גבוה מאוד (למשל 90%) גם אם המודל מפספס כמעט את כל החולים! הסבירו לתלמידים מדוע Accuracy מטעה בדאטה לא מאוזן.
+        </div>
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const slider = document.getElementById('thresholdSlider');
+        const sliderVal = document.getElementById('sliderVal');
+        const thresholdLine = document.getElementById('thresholdLine');
+        const thresholdValue = document.getElementById('thresholdValue');
+
+        let items = [];
+        let isImbalanced = false;
+
+        class DataItem {
+            constructor(isSick, score) {
+                this.isSick = isSick; // True = 🔴, False = 🟢
+                this.score = score;   // Model confidence score (0 to 100)
+                this.y = Math.random() * 260 + 30; // Random Y position
+                this.element = document.createElement('div');
+                this.element.className = `item ${isSick ? 'sick' : 'healthy'}`;
+                this.element.innerText = isSick ? '🔴' : '🟢';
+                canvas.appendChild(this.element);
+            }
+
+            updatePosition() {
+                // Map score (0-100) to left percentage (0-100%)
+                this.element.style.left = `${this.score}%`;
+                this.element.style.top = `${this.y}px`;
+            }
+
+            setDetected(detected) {
+                if (detected) {
+                    this.element.classList.add('item-detected');
+                } else {
+                    this.element.classList.remove('item-detected');
+                }
+            }
+
+            remove() {
+                this.element.remove();
+            }
+        }
+
+        function generateData() {
+            // Clear existing
+            items.forEach(item => item.remove());
+            items = [];
+
+            const total = 40;
+            const sickRatio = isImbalanced ? 0.1 : 0.45; // 10% sick vs 45% sick
+
+            for (let i = 0; i < total; i++) {
+                const isSick = Math.random() < sickRatio;
+                // Sick items tend to have higher model scores, healthy lower, with overlap
+                let score;
+                if (isSick) {
+                    score = Math.floor(gaussianRandom(65, 18));
+                } else {
+                    score = Math.floor(gaussianRandom(35, 18));
+                }
+                score = Math.max(5, Math.min(95, score)); // Constrain to canvas
+
+                const item = new DataItem(isSick, score);
+                item.updatePosition();
+                items.push(item);
+            }
+
+            document.getElementById('total-count-badge').innerText = `${items.length} פריטים בדאטה`;
+            calculateMetrics();
+        }
+
+        function gaussianRandom(mean, std) {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random();
+            while(v === 0) v = Math.random();
+            let num = Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+            return num * std + mean;
+        }
+
+        function toggleImbalance() {
+            isImbalanced = !isImbalanced;
+            generateData();
+        }
+
+        function calculateMetrics() {
+            const threshold = parseInt(slider.value);
+
+            let tp = 0, fp = 0, fn = 0, tn = 0;
+
+            items.forEach(item => {
+                // If model score >= threshold, model predicts SICK (Positive)
+                const predictedSick = item.score >= threshold;
+
+                if (predictedSick) {
+                    item.setDetected(true);
+                    if (item.isSick) tp++;
+                    else fp++;
+                } else {
+                    item.setDetected(false);
+                    if (item.isSick) fn++;
+                    else tn++;
+                }
+            });
+
+            // Update UI Counters
+            document.getElementById('val-tp').innerText = tp;
+            document.getElementById('val-fp').innerText = fp;
+            document.getElementById('val-fn').innerText = fn;
+            document.getElementById('val-tn').innerText = tn;
+
+            // Math calculations
+            const total = items.length;
+            const acc = total > 0 ? ((tp + tn) / total * 100).toFixed(1) : 0;
+            const prec = (tp + fp) > 0 ? ((tp / (tp + fp)) * 100).toFixed(1) : 0;
+            const rec = (tp + fn) > 0 ? ((tp / (tp + fn)) * 100).toFixed(1) : 0;
+            
+            const p = parseFloat(prec) / 100;
+            const r = parseFloat(rec) / 100;
+            const f1 = (p + r) > 0 ? ((2 * p * r) / (p + r)).toFixed(2) : "0.00";
+
+            // Update UI Metrics
+            document.getElementById('m-acc').innerText = `${acc}%`;
+            document.getElementById('m-prec').innerText = `${prec}%`;
+            document.getElementById('m-rec').innerText = `${rec}%`;
+            document.getElementById('m-f1').innerText = f1;
+        }
+
+        // Slider Event Listener
+        slider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            sliderVal.innerText = `${val}%`;
+            thresholdLine.style.left = `${val}%`;
+            thresholdValue.innerText = `רף: ${val}%`;
+            calculateMetrics();
+        });
+
+        // Initial Load
+        generateData();
+    </script>
+</body>
+</html>
